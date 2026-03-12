@@ -1,15 +1,6 @@
-import type { Hypothesis } from "@shared/types";
-
-export class HypothesisValidator {
-  async validate(hypothesis: Hypothesis): Promise<Hypothesis> {
-    // Placeholder: real implementation will query metrics, logs, traces
-    return {
-      ...hypothesis,
-      confidence: hypothesis.confidence,
-    };
-  }
-
-  rankHypotheses(hypotheses: Hypothesis[]): Hypothesis[] {
-    return [...hypotheses].sort((a, b) => b.confidence - a.confidence);
-  }
-}
+// Main entry point — re-export the full pipeline for Slack Bot and other consumers
+export { runFullInvestigation } from "./pipeline";
+export type { FullInvestigationResult, PipelineOptions } from "./pipeline";
+export { validate } from "./validator";
+export type { ValidationResult, ValidatedHypothesis } from "./types";
+export { recalibrateConfidence, shouldEscalate, rerankHypotheses } from "./scoring";

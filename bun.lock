@@ -12,7 +12,13 @@
       "name": "@oncall/hypothesis-validator",
       "version": "0.1.0",
       "dependencies": {
+        "@anthropic-ai/sdk": "^0.36.3",
+        "@oncall/investigation-agent": "workspace:*",
+        "@shared/mock-data": "workspace:*",
         "@shared/types": "workspace:*",
+      },
+      "devDependencies": {
+        "bun-types": "latest",
       },
     },
     "packages/investigation-agent": {

@@ -6,10 +6,13 @@
     "dev": "bun run --watch src/index.ts",
     "build": "bun build src/index.ts --outdir dist",
     "typecheck": "tsc --noEmit",
-    "test": "bun test src/__tests__"
+    "test": "bun test src/__tests__",
+    "investigate": "bun run src/pipeline-cli.ts"
   },
   "dependencies": {
     "@shared/types": "workspace:*",
+    "@shared/mock-data": "workspace:*",
+    "@oncall/investigation-agent": "workspace:*",
     "@anthropic-ai/sdk": "^0.36.3"
   },
   "devDependencies": {
