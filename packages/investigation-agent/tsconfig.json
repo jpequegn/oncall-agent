@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@shared/types": ["../../shared/types/index.ts"],
+      "@shared/mock-data": ["../../shared/mock-data/index.ts"]
+    }
+  },
+  "include": ["src"]
+}
