@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@shared/types": ["../../shared/types/index.ts"],
+      "@shared/mock-data": ["../../shared/mock-data/index.ts"]
+    }
+  },
+  "include": ["src", "drizzle.config.ts"]
+}

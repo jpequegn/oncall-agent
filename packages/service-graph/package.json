@@ -5,10 +5,17 @@
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "build": "bun build src/index.ts --outdir dist",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "migrate": "bun run src/migrate.ts"
   },
   "dependencies": {
     "@shared/types": "workspace:*",
-    "@shared/mock-data": "workspace:*"
+    "@shared/mock-data": "workspace:*",
+    "drizzle-orm": "^0.41.0",
+    "postgres": "^3.4.5"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.30.0",
+    "@types/node": "^20.0.0"
   }
 }
