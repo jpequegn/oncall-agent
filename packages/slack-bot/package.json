@@ -6,7 +6,8 @@
     "dev": "bun run --watch src/app.ts",
     "start": "bun run src/app.ts",
     "build": "bun build src/app.ts --outdir dist",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test src/__tests__"
   },
   "dependencies": {
     "@shared/types": "workspace:*",

@@ -1,5 +1,6 @@
 import { App } from "@slack/bolt";
 import type { ScenarioName } from "@shared/mock-data";
+import { parseAlert } from "./alert-parser";
 
 // ── Environment ────────────────────────────────────────────────────────────
 
@@ -28,8 +29,8 @@ const SCENARIO_KEYWORDS: Record<string, ScenarioName> = {
   "fraud-service":     "no-clear-cause",
 };
 
-function detectScenario(text: string): ScenarioName {
-  const lower = text.toLowerCase();
+function detectScenario(service: string, text: string): ScenarioName {
+  const lower = (service + " " + text).toLowerCase();
   for (const [keyword, scenario] of Object.entries(SCENARIO_KEYWORDS)) {
     if (lower.includes(keyword)) return scenario;
   }
@@ -46,26 +47,20 @@ async function triggerInvestigation(opts: {
 }) {
   const { text, threadTs, channelId, say } = opts;
 
-  const scenario = detectScenario(text);
-  const service = text.match(/([a-z][a-z0-9-]+-service)/i)?.[1] ?? scenario.split("-")[0] + "-service";
+  // Parse the alert using LLM extraction with regex fallback
+  const alert = await parseAlert(text);
+  alert.labels.channel = channelId;
 
-  await say({ text: `🔍 Investigating *${service}*... (scenario: ${scenario})`, thread_ts: threadTs });
+  const scenario = detectScenario(alert.service, text);
+
+  await say({ text: `🔍 Investigating *${alert.service}*... (severity: ${alert.severity})`, thread_ts: threadTs });
 
   // Lazy import to keep startup fast
   const { runFullInvestigation } = await import("@oncall/hypothesis-validator");
-  const alert = {
-    id: `slack-${Date.now()}`,
-    title: text.slice(0, 200),
-    severity: "critical" as const,
-    service,
-    timestamp: new Date(),
-    labels: { env: "production", source: "slack", channel: channelId },
-    description: text,
-  };
 
   try {
     const result = await runFullInvestigation(alert, {
-      scenario,
+      scenario: scenario as ScenarioName,
       serviceGraphUrl: SERVICE_GRAPH_URL,
     });
 
