@@ -3,11 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "bun run --watch src/index.ts",
-    "build": "bun build src/index.ts --outdir dist",
+    "dev": "bun run --watch src/app.ts",
+    "start": "bun run src/app.ts",
+    "build": "bun build src/app.ts --outdir dist",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@shared/types": "workspace:*"
+    "@shared/types": "workspace:*",
+    "@shared/mock-data": "workspace:*",
+    "@oncall/hypothesis-validator": "workspace:*",
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@slack/bolt": "^4.6.0"
+  },
+  "devDependencies": {
+    "bun-types": "^1.3.10"
   }
 }
