@@ -1,19 +1,19 @@
 # oncall-agent
 
-An AI-powered SRE incident investigation platform.
+An AI-powered SRE incident investigation platform built to explore autonomous production incident management.
 
 ## What This Is
 
-autoheal.ai is an enterprise AI SRE platform that uses a **Production Context Graph (PCG)** and a multi-agent architecture to autonomously investigate production incidents — correlating metrics, logs, deploys, runbooks, and historical incidents into actionable root cause hypotheses within minutes.
+Modern SRE platforms use a **Production Context Graph (PCG)** and a multi-agent architecture to autonomously investigate production incidents — correlating metrics, logs, deploys, runbooks, and historical incidents into actionable root cause hypotheses within minutes.
 
-This project reproduces four of its core capabilities:
+This project implements four core capabilities of that pattern:
 
 | # | Project | What It Reproduces |
 |---|---------|-------------------|
 | 2 | [Service Dependency Graph](./packages/service-graph) | Production Context Graph (PCG) |
 | 3 | [AI Investigation Agent](./packages/investigation-agent) | OnCall Agent — multi-step tool-use investigation loop |
 | 4 | [Hypothesis Validator Agent](./packages/hypothesis-validator) | Adversarial validation layer |
-| 7 | [Slack Incident Bot](./packages/slack-bot) | @Autoheal Slack integration |
+| 7 | [Slack Incident Bot](./packages/slack-bot) | Slack integration for incident response |
 
 ## Architecture
 

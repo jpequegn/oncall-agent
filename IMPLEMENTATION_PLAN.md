@@ -20,7 +20,7 @@ Project 7: Slack Incident Bot         (interface — orchestrates Projects 3 + 4
 
 **Goal**: Build a queryable graph of service relationships that the Investigation Agent can call as a tool.
 
-**What it reproduces**: autoheal.ai's Production Context Graph (PCG) — the continuously-updating knowledge graph connecting infrastructure topology, code, and ownership.
+**Pattern**: Production Context Graph (PCG) — a continuously-updating knowledge graph connecting infrastructure topology, code, and ownership.
 
 ### Data Model
 
@@ -64,7 +64,7 @@ Edges:
 
 **Goal**: An LLM agent that receives an alert and autonomously investigates it using tool use, producing structured root cause hypotheses.
 
-**What it reproduces**: autoheal.ai's OnCall Agent — the multi-step tool-use investigation loop.
+**Pattern**: OnCall Agent — a multi-step tool-use investigation loop.
 
 ### Investigation Flow
 
@@ -204,7 +204,7 @@ interface InvestigationResult {
 
 **Goal**: A second LLM agent that receives the Investigation Agent's hypotheses and adversarially challenges each one, improving signal quality before presenting to engineers.
 
-**What it reproduces**: autoheal.ai's adversarial validation layer — a "devil's advocate" agent that stress-tests hypotheses before they become engineer recommendations.
+**Pattern**: Adversarial validation layer — a "devil's advocate" agent that stress-tests hypotheses before they become engineer recommendations.
 
 ### Validation Flow
 
@@ -253,14 +253,14 @@ they waste an engineer's time.
 
 ## Project 7: Slack Incident Bot
 
-**Goal**: A Slack bot that listens for @Autoheal mentions or PagerDuty-style webhook alerts, triggers the investigation + validation pipeline, and posts findings in a threaded, interactive format.
+**Goal**: A Slack bot that listens for @oncall-agent mentions or PagerDuty-style webhook alerts, triggers the investigation + validation pipeline, and posts findings in a threaded, interactive format.
 
-**What it reproduces**: autoheal.ai's Slack integration — the primary engineer interface for incident investigation.
+**Pattern**: Slack-native incident response — the primary engineer interface for incident investigation.
 
 ### Interaction Pattern
 
 ```
-Engineer: @Autoheal payment-service is throwing 500s since the 14:30 deploy
+Engineer: @oncall-agent payment-service is throwing 500s since the 14:30 deploy
 
 Bot: 🔍 Investigating payment-service...
      Querying metrics, logs, recent deploys...
