@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@shared/types": "workspace:*",
-    "@shared/mock-data": "workspace:*"
+    "@shared/mock-data": "workspace:*",
+    "@anthropic-ai/sdk": "^0.36.3"
   },
   "devDependencies": {
     "bun-types": "latest"
