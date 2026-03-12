@@ -10,7 +10,8 @@
     "dev": "bun run --filter '*' dev",
     "build": "bun run --filter '*' build",
     "lint": "bun run --filter '*' lint",
-    "typecheck": "bun run --filter '*' typecheck"
+    "typecheck": "bun run --filter '*' typecheck",
+    "investigate": "bun run packages/investigation-agent/src/cli.ts"
   },
   "devDependencies": {
     "typescript": "^5.4.0"

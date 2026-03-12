@@ -6,7 +6,8 @@
     "dev": "bun run --watch src/index.ts",
     "build": "bun build src/index.ts --outdir dist",
     "typecheck": "tsc --noEmit",
-    "test": "bun test src/__tests__"
+    "test": "bun test src/__tests__",
+    "investigate": "bun run src/cli.ts"
   },
   "dependencies": {
     "@shared/types": "workspace:*",
