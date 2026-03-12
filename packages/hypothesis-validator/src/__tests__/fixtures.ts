@@ -57,6 +57,56 @@ export const scenarioAValidatorResponse: LooseMessage = {
   ],
 };
 
+// ── Scenario B: Upstream dependency failure — correct hypothesis, barely challenged ──
+
+export const scenarioBValidatorResponse: LooseMessage = {
+  id: "msg_vb1",
+  type: "message",
+  role: "assistant",
+  model: "claude-sonnet-4-6",
+  stop_reason: "end_turn",
+  stop_sequence: null,
+  usage: usage(),
+  content: [
+    {
+      type: "text",
+      text: JSON.stringify({
+        validated_hypotheses: [
+          {
+            original_rank: 1,
+            original_confidence: 91,
+            challenge_score: 12,
+            key_objections: [
+              "Connection pool exhaustion alone doesn't explain the CPU spike — high CPU could be the cause, not the effect"
+            ],
+            missing_evidence: [
+              "Root query causing the pool saturation (slow query log)",
+              "Whether traffic volume increased before the pool filled"
+            ],
+            alternative_explanation: "A slow query held connections open, causing both pool exhaustion and high CPU as queries queued up",
+            revised_confidence: 80,
+          },
+          {
+            original_rank: 2,
+            original_confidence: 9,
+            challenge_score: 25,
+            key_objections: [
+              "No disk I/O metrics or network latency data provided to support hardware hypothesis",
+              "Connection exhaustion pattern more consistent with query load than hardware failure"
+            ],
+            missing_evidence: [
+              "Disk I/O saturation metrics from inventory-db host",
+              "Network packet loss between inventory-service and inventory-db"
+            ],
+            revised_confidence: 7,
+          },
+        ],
+        validator_notes: "The connection pool exhaustion evidence chain is solid — timing, logs, and past incident pattern all align. Hypothesis 1 is well-supported with minimal objections.",
+      }),
+    },
+  ],
+};
+
 // ── Scenario C: No clear cause — validator escalates ──────────────────────
 
 export const scenarioCValidatorResponse: LooseMessage = {
