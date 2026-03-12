@@ -6,7 +6,8 @@
     "dev": "bun run --watch src/index.ts",
     "build": "bun build src/index.ts --outdir dist",
     "typecheck": "tsc --noEmit",
-    "migrate": "bun run src/migrate.ts"
+    "migrate": "bun run src/migrate.ts",
+    "seed": "bun run src/seed.ts"
   },
   "dependencies": {
     "@shared/types": "workspace:*",
