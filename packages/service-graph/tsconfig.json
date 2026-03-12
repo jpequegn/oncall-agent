@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "types": ["node"],
+    "types": ["node", "bun-types"],
     "baseUrl": ".",
     "paths": {
       "@shared/types": ["../../shared/types/index.ts"],
