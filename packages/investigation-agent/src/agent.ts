@@ -137,6 +137,8 @@ export interface InvestigateOptions {
   scenario: ScenarioName;
   serviceGraphUrl?: string;
   apiKey?: string;
+  /** Inject a pre-configured Anthropic client (used in tests). */
+  client?: Anthropic;
 }
 
 export async function investigate(
@@ -146,7 +148,7 @@ export async function investigate(
   const startedAt = new Date();
   const deadline = startedAt.getTime() + TIMEOUT_MS;
 
-  const anthropic = new Anthropic({
+  const anthropic = opts.client ?? new Anthropic({
     apiKey: opts.apiKey ?? process.env.ANTHROPIC_API_KEY,
   });
 
