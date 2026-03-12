@@ -8,12 +8,14 @@ Modern SRE platforms use a **Production Context Graph (PCG)** and a multi-agent 
 
 This project implements four core capabilities of that pattern:
 
-| # | Project | What It Reproduces |
-|---|---------|-------------------|
+| # | Project | Description |
+|---|---------|-------------|
 | 2 | [Service Dependency Graph](./packages/service-graph) | Production Context Graph (PCG) |
-| 3 | [AI Investigation Agent](./packages/investigation-agent) | OnCall Agent — multi-step tool-use investigation loop |
+| 3 | [AI Investigation Agent](./packages/investigation-agent) | Multi-step tool-use investigation loop |
 | 4 | [Hypothesis Validator Agent](./packages/hypothesis-validator) | Adversarial validation layer |
-| 7 | [Slack Incident Bot](./packages/slack-bot) | Slack integration for incident response |
+| 7a | [Bot Core](./packages/bot-core) | Platform-agnostic orchestration + alert parsing |
+| 7b | [Slack Bot](./packages/slack-bot) | Slack Bolt adapter + Block Kit renderer |
+| 7c | [Teams Bot](./packages/teams-bot) | Microsoft Teams Bot Framework adapter + Adaptive Cards |
 
 ## Architecture
 
@@ -72,7 +74,9 @@ oncall-agent/
 │   ├── service-graph/        # Project 2: Service Dependency Graph
 │   ├── investigation-agent/  # Project 3: AI Investigation Agent
 │   ├── hypothesis-validator/ # Project 4: Hypothesis Validator Agent
-│   └── slack-bot/            # Project 7: Slack Incident Bot
+│   ├── bot-core/             # Project 7a: Shared bot layer (adapter interface, orchestrator)
+│   ├── slack-bot/            # Project 7b: Slack Bolt adapter + Block Kit renderer
+│   └── teams-bot/            # Project 7c: Teams Bot Framework adapter + Adaptive Cards
 ├── shared/
 │   ├── types/                # Shared TypeScript interfaces
 │   └── mock-data/            # Simulated Datadog/GitHub/log responses

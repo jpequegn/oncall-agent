@@ -251,49 +251,178 @@ they waste an engineer's time.
 
 ---
 
-## Project 7: Slack Incident Bot
+## Project 7: Bot Core + Slack + Teams
 
-**Goal**: A Slack bot that listens for @oncall-agent mentions or PagerDuty-style webhook alerts, triggers the investigation + validation pipeline, and posts findings in a threaded, interactive format.
+Both messaging platforms share the same investigation pipeline. The bot layer is split into three packages:
 
-**Pattern**: Slack-native incident response — the primary engineer interface for incident investigation.
+```
+packages/
+  bot-core/      ← platform-agnostic orchestration, alert parsing, result model
+  slack-bot/     ← Bolt SDK adapter + Block Kit formatter
+  teams-bot/     ← Bot Framework adapter + Adaptive Cards formatter
+```
 
-### Interaction Pattern
+---
+
+### Project 7a: Bot Core (shared layer)
+
+**Goal**: Extract all platform-agnostic logic so it can be reused by both Slack and Teams adapters without duplication.
+
+#### BotAdapter Interface
+
+```typescript
+// packages/bot-core/src/adapter.ts
+export interface MessageContext {
+  channelId: string;
+  threadId: string;
+  userId: string;
+  platform: "slack" | "teams";
+}
+
+export interface ActionContext extends MessageContext {
+  actionId: string;
+  value: string;
+  messageTs: string;
+}
+
+export interface BotAdapter {
+  postMessage(ctx: MessageContext, message: BotMessage): Promise<{ messageId: string }>;
+  updateMessage(ctx: MessageContext, messageId: string, message: BotMessage): Promise<void>;
+  onMention(handler: (text: string, ctx: MessageContext) => Promise<void>): void;
+  onAction(actionId: string, handler: (ctx: ActionContext) => Promise<void>): void;
+}
+```
+
+#### BotMessage (platform-agnostic result model)
+
+```typescript
+export interface BotMessage {
+  text: string;                        // fallback plain text
+  blocks?: InvestigationBlocks;        // structured data; each adapter renders to its format
+}
+
+export interface InvestigationBlocks {
+  type: "investigation_result";
+  alert: Alert;
+  hypotheses: ValidatedHypothesis[];
+  timeline: TimelineEvent[];
+  duration_ms: number;
+  tool_call_count: number;
+  escalate: boolean;
+}
+```
+
+#### Core Orchestration (lives once, used by both adapters)
+
+```typescript
+// packages/bot-core/src/orchestrator.ts
+export async function handleIncidentMention(
+  text: string,
+  ctx: MessageContext,
+  adapter: BotAdapter,
+  onProgress: (msg: string) => Promise<void>
+): Promise<void> {
+  const alert = await parseAlert(text);
+  await onProgress("🔍 Investigating `" + alert.service + "`...");
+  const investigation = await runFullInvestigation(alert, {
+    onToolCall: (name) => onProgress(`✓ ${formatToolName(name)}`),
+  });
+  await adapter.postMessage(ctx, { text: formatSummary(investigation), blocks: investigation });
+}
+```
+
+#### Implementation Steps
+
+1. Define `BotAdapter` interface and `BotMessage` / `InvestigationBlocks` types
+2. Move alert parser from `slack-bot` into `bot-core`
+3. Move pipeline orchestration into `bot-core/src/orchestrator.ts`
+4. Move feedback loop (knowledge base write on confirmation) into `bot-core`
+5. Export typed `formatToolName` and `formatSummary` helpers
+
+---
+
+### Project 7b: Slack Bot (Bolt adapter)
+
+**Goal**: Implement `BotAdapter` using Slack Bolt SDK + render `InvestigationBlocks` as Block Kit.
+
+#### Interaction Pattern
 
 ```
 Engineer: @oncall-agent payment-service is throwing 500s since the 14:30 deploy
 
 Bot: 🔍 Investigating payment-service...
-     Querying metrics, logs, recent deploys...
+     ✓ Queried metrics  ✓ Searched logs  ✓ Checked deploys
 
 Bot: 📊 Investigation Complete (47s)
 
      Root cause hypothesis (confidence: 78%):
-     Null pointer exception in PaymentProcessor v2.1.3
-     introduced in deploy abc123 at 14:28 UTC
+     NullPointerException in PaymentProcessor v2.1.3 (deploy abc123, 14:28 UTC)
 
      Evidence:
-     • Error rate spiked from 0.1% → 8.3% at 14:31 UTC
+     • Error rate 0.1% → 8.3% at 14:31 UTC
      • Deploy abc123 touched PaymentProcessor.java
-     • Stack trace: NullPointerException at line 247
-     • No upstream dependency changes in past 2 hours
+     • Stack trace: NullPointerException at PaymentProcessor:247
 
-     Adversarial check: hypothesis confirmed (challenge score: 12/100)
-
-     Runbook: https://wiki/payment-service/null-ptr-runbook
-
-     [👍 This looks right]  [❌ Wrong hypothesis]  [🔍 Investigate further]
+     [👍 Correct]  [❌ Wrong]  [🔍 Dig deeper]
 ```
 
-### Implementation Steps
+#### Implementation Steps
 
-1. **Bolt SDK setup** — handle `app_mention` events and slash command `/investigate`
-2. **Webhook receiver** — parse PagerDuty/Alertmanager webhook format into investigation request
-3. **Pipeline orchestration** — call Investigation Agent → Hypothesis Validator → format output
-4. **Streaming updates** — post intermediate status messages ("Querying Datadog... ✓")
-5. **Thread management** — post investigation results as threaded replies
-6. **Action buttons** — handle 👍 / ❌ / 🔍 interactions, route to appropriate response
-7. **Feedback loop** — on 👍, store confirmed root cause in incident knowledge base (pgvector)
-8. **Environment config** — `.env` with `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`, `ANTHROPIC_API_KEY`
+1. **Bolt SDK setup** — `app_mention` + `/investigate` slash command
+2. **SlackAdapter** — implement `BotAdapter` interface using `app.client`
+3. **Block Kit renderer** — render `InvestigationBlocks` → Slack Block Kit JSON
+4. **Action handlers** — wire `hypothesis_confirm`, `hypothesis_reject`, `investigate_more` to `bot-core` handlers
+5. **Environment config** — `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`, `ANTHROPIC_API_KEY`
+
+---
+
+### Project 7c: Teams Bot (Bot Framework adapter)
+
+**Goal**: Implement `BotAdapter` using the Microsoft Bot Framework SDK + render `InvestigationBlocks` as Adaptive Cards.
+
+#### Differences from Slack
+
+| Concern | Slack | Teams |
+|---------|-------|-------|
+| SDK | `@slack/bolt` | `botbuilder` |
+| Auth | Signing secret + bot token | Azure App Registration (client ID + secret) |
+| Message format | Block Kit JSON | Adaptive Cards JSON |
+| Triggers | `app_mention` event | `onMessage` activity handler |
+| Action buttons | `app.action()` | `onInvokeActivity` handler |
+| Hosting | Any HTTP | Azure Bot Service (or self-hosted with ngrok) |
+
+#### Adaptive Card (equivalent to Block Kit result)
+
+```json
+{
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "body": [
+    { "type": "TextBlock", "text": "📊 Investigation: payment-service", "weight": "Bolder", "size": "Medium" },
+    { "type": "FactSet", "facts": [
+      { "title": "Duration", "value": "47s" },
+      { "title": "Tool calls", "value": "8" },
+      { "title": "Confidence", "value": "78%" }
+    ]},
+    { "type": "TextBlock", "text": "NullPointerException in PaymentProcessor v2.1.3", "wrap": true },
+    { "type": "TextBlock", "text": "• Error rate 0.1% → 8.3% at 14:31 UTC\n• Deploy abc123 at 14:28 UTC", "wrap": true }
+  ],
+  "actions": [
+    { "type": "Action.Submit", "title": "👍 Correct", "data": { "actionId": "hypothesis_confirm" } },
+    { "type": "Action.Submit", "title": "❌ Wrong", "data": { "actionId": "hypothesis_reject" } },
+    { "type": "Action.Submit", "title": "🔍 Dig deeper", "data": { "actionId": "investigate_more" } }
+  ]
+}
+```
+
+#### Implementation Steps
+
+1. **Bot Framework setup** — `ActivityHandler` subclass, register with Azure Bot Service
+2. **TeamsAdapter** — implement `BotAdapter` interface using `TurnContext`
+3. **Adaptive Cards renderer** — render `InvestigationBlocks` → Adaptive Card JSON
+4. **Invoke activity handler** — handle `Action.Submit` from Adaptive Card buttons
+5. **Environment config** — `MICROSOFT_APP_ID`, `MICROSOFT_APP_PASSWORD`, `ANTHROPIC_API_KEY`
+6. **Local testing** — ngrok tunnel + Bot Framework Emulator
 
 ---
 
@@ -316,11 +445,16 @@ Week 3: Project 4 — Hypothesis Validator Agent
   - Confidence recalibration formula (day 3)
   - Integration tests (days 4-5)
 
-Week 4: Project 7 — Slack Incident Bot
-  - Bolt setup + event handling (days 1-2)
-  - Pipeline orchestration (day 3)
-  - Streaming + thread management (day 4)
-  - Action buttons + feedback loop (day 5)
+Week 4: Project 7a — Bot Core + Project 7b — Slack Bot
+  - Bot Core: BotAdapter interface + alert parser + orchestrator (days 1-2)
+  - Slack: Bolt setup + SlackAdapter + Block Kit renderer (days 3-4)
+  - Slack: action handlers + tests (day 5)
+
+Week 5: Project 7c — Teams Bot
+  - Bot Framework setup + TeamsAdapter (days 1-2)
+  - Adaptive Cards renderer (day 3)
+  - Invoke activity handler + local testing with emulator (day 4)
+  - Tests (day 5)
 ```
 
 ---
@@ -353,7 +487,7 @@ export interface Alert {
   title: string;
   description: string;
   started_at: string;
-  source: "pagerduty" | "datadog" | "slack" | "manual";
+  source: "pagerduty" | "datadog" | "slack" | "teams" | "manual";
 }
 
 export interface Service {
