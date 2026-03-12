@@ -1,6 +1,6 @@
 # oncall-agent
 
-An AI-powered SRE incident investigation platform reproducing the core capabilities of [autoheal.ai](https://autoheal.ai).
+An AI-powered SRE incident investigation platform.
 
 ## What This Is
 
