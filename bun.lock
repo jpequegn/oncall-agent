@@ -19,7 +19,11 @@
       "name": "@oncall/investigation-agent",
       "version": "0.1.0",
       "dependencies": {
+        "@shared/mock-data": "workspace:*",
         "@shared/types": "workspace:*",
+      },
+      "devDependencies": {
+        "bun-types": "latest",
       },
     },
     "packages/service-graph": {
