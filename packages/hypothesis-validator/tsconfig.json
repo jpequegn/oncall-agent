@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "baseUrl": ".",
+    "types": ["bun-types"],
     "paths": {
       "@shared/types": ["../../shared/types/index.ts"],
       "@shared/mock-data": ["../../shared/mock-data/index.ts"]
