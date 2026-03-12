@@ -1,0 +1,14 @@
+{
+  "name": "@oncall/service-graph",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/index.ts --outdir dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@shared/types": "workspace:*",
+    "@shared/mock-data": "workspace:*"
+  }
+}

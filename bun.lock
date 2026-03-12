@@ -1,0 +1,67 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "oncall-agent",
+      "devDependencies": {
+        "typescript": "^5.4.0",
+      },
+    },
+    "packages/hypothesis-validator": {
+      "name": "@oncall/hypothesis-validator",
+      "version": "0.1.0",
+      "dependencies": {
+        "@shared/types": "workspace:*",
+      },
+    },
+    "packages/investigation-agent": {
+      "name": "@oncall/investigation-agent",
+      "version": "0.1.0",
+      "dependencies": {
+        "@shared/types": "workspace:*",
+      },
+    },
+    "packages/service-graph": {
+      "name": "@oncall/service-graph",
+      "version": "0.1.0",
+      "dependencies": {
+        "@shared/mock-data": "workspace:*",
+        "@shared/types": "workspace:*",
+      },
+    },
+    "packages/slack-bot": {
+      "name": "@oncall/slack-bot",
+      "version": "0.1.0",
+      "dependencies": {
+        "@shared/types": "workspace:*",
+      },
+    },
+    "shared/mock-data": {
+      "name": "@shared/mock-data",
+      "version": "0.1.0",
+      "dependencies": {
+        "@shared/types": "workspace:*",
+      },
+    },
+    "shared/types": {
+      "name": "@shared/types",
+      "version": "0.1.0",
+    },
+  },
+  "packages": {
+    "@oncall/hypothesis-validator": ["@oncall/hypothesis-validator@workspace:packages/hypothesis-validator"],
+
+    "@oncall/investigation-agent": ["@oncall/investigation-agent@workspace:packages/investigation-agent"],
+
+    "@oncall/service-graph": ["@oncall/service-graph@workspace:packages/service-graph"],
+
+    "@oncall/slack-bot": ["@oncall/slack-bot@workspace:packages/slack-bot"],
+
+    "@shared/mock-data": ["@shared/mock-data@workspace:shared/mock-data"],
+
+    "@shared/types": ["@shared/types@workspace:shared/types"],
+
+    "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+  }
+}
