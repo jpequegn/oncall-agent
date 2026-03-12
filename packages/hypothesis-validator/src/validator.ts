@@ -1,23 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { InvestigationResult } from "@shared/types";
-
-// ── Types ──────────────────────────────────────────────────────────────────
-
-export interface ValidationResult {
-  incident_id: string;
-  validated_hypotheses: Array<{
-    original_rank: number;
-    original_confidence: number;
-    challenge_score: number;        // 0-100: how strongly challenged
-    key_objections: string[];
-    missing_evidence: string[];     // what would confirm or deny
-    alternative_explanation?: string;
-    revised_confidence: number;     // = original * (1 - challenge_score/100)
-  }>;
-  escalate: boolean;                // true if top hypothesis revised_confidence < 40%
-  escalation_reason?: string;
-  validator_notes: string;
-}
+import type { ValidationResult } from "./types";
+export type { ValidationResult } from "./types";
 
 export interface ValidateOptions {
   apiKey?: string;
