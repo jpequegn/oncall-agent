@@ -1,6 +1,8 @@
 import type { App } from "@slack/bolt";
 import type { ScenarioName } from "@shared/mock-data";
 import { parseAlert } from "../alert-parser";
+import { formatInvestigationResult, formatPlainText } from "../formatters/investigation";
+import type { FullInvestigationResult } from "@oncall/hypothesis-validator";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyAnthropicClient = any;
 
@@ -80,6 +82,7 @@ export async function handleIncident(opts: HandleIncidentOptions): Promise<void>
 
   // 3. Run investigation with live progress updates
   const completedTools: string[] = [];
+  const investigationStart = Date.now();
 
   let investigation;
   try {
@@ -101,6 +104,8 @@ export async function handleIncident(opts: HandleIncidentOptions): Promise<void>
     return;
   }
 
+  const investigationDurationMs = Date.now() - investigationStart;
+
   if (investigation.status === "failed") {
     await safeUpdate(app, channelId, statusTs,
       `❌ Investigation failed: ${investigation.summary ?? "unknown error"}\n_Please investigate manually._`);
@@ -111,6 +116,7 @@ export async function handleIncident(opts: HandleIncidentOptions): Promise<void>
   await safeUpdate(app, channelId, statusTs,
     `🧪 Validating hypotheses...\n${completedTools.map((t) => `✓ ${t}`).join("\n")}`);
 
+  const validationStart = Date.now();
   let validation;
   try {
     const { validate } = await import("@oncall/hypothesis-validator");
@@ -121,74 +127,36 @@ export async function handleIncident(opts: HandleIncidentOptions): Promise<void>
     return;
   }
 
-  // 5. Post final result
+  const validationDurationMs = Date.now() - validationStart;
+
+  // 5. Post final result using Block Kit
   const { rerankHypotheses } = await import("@oncall/hypothesis-validator");
   const finalHypotheses = rerankHypotheses(validation.validated_hypotheses);
-  const top = finalHypotheses[0];
-  const topOriginal = top ? investigation.hypotheses[top.original_rank - 1] : undefined;
+
+  const fullResult: FullInvestigationResult = {
+    alert,
+    investigation,
+    validation,
+    final_hypotheses: finalHypotheses,
+    escalate: validation.escalate,
+    investigation_duration_ms: investigationDurationMs,
+    validation_duration_ms: validationDurationMs,
+    total_duration_ms: investigationDurationMs + validationDurationMs,
+  };
 
   if (validation.escalate) {
     await safeUpdate(app, channelId, statusTs,
       `🚨 *Escalation required* — ${validation.escalation_reason ?? "low confidence investigation"}`);
-    await app.client.chat.postMessage({
-      channel: channelId,
-      thread_ts: threadTs,
-      text: formatEscalationResult(investigation.summary, finalHypotheses, investigation, validation.validator_notes),
-    });
   } else {
     await safeUpdate(app, channelId, statusTs, `✅ *Investigation complete*`);
-    await app.client.chat.postMessage({
-      channel: channelId,
-      thread_ts: threadTs,
-      text: formatSuccessResult(top, topOriginal, investigation.summary, validation.validator_notes),
-    });
   }
-}
 
-// ── Formatters ─────────────────────────────────────────────────────────────
-
-function confidenceBar(n: number): string {
-  return "█".repeat(Math.round(n / 10)) + "░".repeat(10 - Math.round(n / 10));
-}
-
-function formatSuccessResult(
-  top: ReturnType<typeof import("@oncall/hypothesis-validator").rerankHypotheses>[number] | undefined,
-  topOriginal: import("@shared/types").Hypothesis | undefined,
-  summary: string | undefined,
-  validatorNotes: string
-): string {
-  const conf = top?.revised_confidence ?? 0;
-  const bar = confidenceBar(conf);
-  const lines = [
-    summary ? `📢 ${summary}` : "",
-    "",
-    `*Root cause* (${conf}% confidence) \`${bar}\``,
-    topOriginal ? `>${topOriginal.description}` : "",
-    "",
-    topOriginal?.suggestedActions[0] ? `*Action:* ${topOriginal.suggestedActions[0]}` : "",
-    "",
-    `_🔬 ${validatorNotes}_`,
-  ];
-  return lines.filter((l) => l !== "").join("\n");
-}
-
-function formatEscalationResult(
-  summary: string | undefined,
-  finalHypotheses: ReturnType<typeof import("@oncall/hypothesis-validator").rerankHypotheses>,
-  investigation: import("@shared/types").InvestigationResult,
-  validatorNotes: string
-): string {
-  const lines: string[] = [
-    summary ? `📢 ${summary}` : "",
-    "",
-    "*Hypotheses (low confidence — human review needed):*",
-  ];
-  for (const vh of finalHypotheses.slice(0, 3)) {
-    const orig = investigation.hypotheses[vh.original_rank - 1];
-    lines.push(`• ${orig?.description ?? "unknown"} _(${vh.revised_confidence}% revised)_`);
-  }
-  lines.push("", `_🔬 ${validatorNotes}_`);
-  return lines.filter((l) => l !== "").join("\n");
+  await app.client.chat.postMessage({
+    channel: channelId,
+    thread_ts: threadTs,
+    text: formatPlainText(fullResult),
+    blocks: formatInvestigationResult(fullResult),
+  });
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
