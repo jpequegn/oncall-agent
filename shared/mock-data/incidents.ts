@@ -133,3 +133,7 @@ export const mockIncidents: MockIncident[] = [
     preventionNotes: "Cache TTL must be appropriate to data freshness requirements; write-through or invalidate-on-write pattern required for inventory",
   },
 ];
+
+export function addMockIncident(incident: MockIncident): void {
+  mockIncidents.push(incident);
+}
