@@ -3,7 +3,7 @@ export type { MockIncident } from "./incidents";
 export type * from "./types";
 
 export { mockRunbooks } from "./runbooks";
-export { mockIncidents } from "./incidents";
+export { mockIncidents, addMockIncident } from "./incidents";
 export {
   scenarioAMetrics,
   scenarioBMetrics,

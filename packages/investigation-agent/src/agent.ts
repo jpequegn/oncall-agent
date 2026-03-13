@@ -141,6 +141,10 @@ export interface InvestigateOptions {
   client?: Anthropic;
   /** Called after each batch of tool calls completes (for progress notifications). */
   onToolCall?: (toolNames: string[]) => Promise<void>;
+  /** Override the default iteration limit (default: 10). */
+  maxIterations?: number;
+  /** Extra context prepended to the investigation prompt (e.g. previous findings). */
+  contextHint?: string;
 }
 
 export async function investigate(
@@ -148,6 +152,7 @@ export async function investigate(
   opts: InvestigateOptions
 ): Promise<InvestigationResult> {
   const startedAt = new Date();
+  const maxIter = opts.maxIterations ?? MAX_ITERATIONS;
   const deadline = startedAt.getTime() + TIMEOUT_MS;
 
   const anthropic = opts.client ?? new Anthropic({
@@ -159,13 +164,17 @@ export async function investigate(
     serviceGraphUrl: opts.serviceGraphUrl,
   };
 
+  const alertMsg = opts.contextHint
+    ? `${opts.contextHint}\n\n${formatAlertMessage(alert, opts.scenario)}`
+    : formatAlertMessage(alert, opts.scenario);
+
   const messages: MessageParam[] = [
-    { role: "user", content: formatAlertMessage(alert, opts.scenario) },
+    { role: "user", content: alertMsg },
   ];
 
   console.log(`\n🔍 Starting investigation for alert ${alert.id} (scenario: ${opts.scenario})`);
 
-  for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
+  for (let iteration = 1; iteration <= maxIter; iteration++) {
     if (Date.now() > deadline) {
       console.warn(`⚠️  Timeout reached after ${iteration - 1} iterations`);
       return {
@@ -249,6 +258,6 @@ export async function investigate(
     completedAt: new Date(),
     status: "failed",
     hypotheses: [],
-    summary: `Investigation exceeded max iterations (${MAX_ITERATIONS})`,
+    summary: `Investigation exceeded max iterations (${maxIter})`,
   };
 }

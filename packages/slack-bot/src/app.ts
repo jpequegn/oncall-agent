@@ -1,5 +1,6 @@
 import { App } from "@slack/bolt";
 import { handleIncident } from "./handlers/incident";
+import { registerActionHandlers, handlePendingRejection, pendingRejections } from "./handlers/actions";
 
 // ── Environment ────────────────────────────────────────────────────────────
 
@@ -41,6 +42,24 @@ app.event("app_mention", async ({ event }) => {
     app,
     serviceGraphUrl: SERVICE_GRAPH_URL,
   });
+});
+
+// ── Action handlers (button interactions) ─────────────────────────────────
+
+registerActionHandlers(app);
+
+// ── Thread message listener (rejection correction flow) ────────────────────
+
+app.message(async ({ message, client }) => {
+  // Only handle threaded messages that are not from bots
+  if (message.subtype) return; // bot messages, edits, etc.
+  const msg = message as { channel: string; ts: string; thread_ts?: string; text?: string; user?: string };
+  if (!msg.thread_ts || !msg.text) return;
+
+  const key = `${msg.channel}-${msg.thread_ts}`;
+  if (!pendingRejections.has(key)) return;
+
+  await handlePendingRejection(app, msg.channel, msg.thread_ts, msg.text, msg.user ?? "unknown");
 });
 
 // ── Command: /investigate ──────────────────────────────────────────────────

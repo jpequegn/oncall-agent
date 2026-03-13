@@ -3,6 +3,7 @@ import type { ScenarioName } from "@shared/mock-data";
 import { parseAlert } from "../alert-parser";
 import { formatInvestigationResult, formatPlainText } from "../formatters/investigation";
 import type { FullInvestigationResult } from "@oncall/hypothesis-validator";
+import { investigationStore } from "./actions";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyAnthropicClient = any;
 
@@ -151,12 +152,17 @@ export async function handleIncident(opts: HandleIncidentOptions): Promise<void>
     await safeUpdate(app, channelId, statusTs, `✅ *Investigation complete*`);
   }
 
-  await app.client.chat.postMessage({
+  const resultMsg = await app.client.chat.postMessage({
     channel: channelId,
     thread_ts: threadTs,
     text: formatPlainText(fullResult),
     blocks: formatInvestigationResult(fullResult),
   });
+
+  // Save context so action button handlers can access the investigation result
+  if (resultMsg.ts) {
+    investigationStore.set(`${channelId}-${resultMsg.ts}`, fullResult);
+  }
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
