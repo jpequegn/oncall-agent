@@ -139,6 +139,8 @@ export interface InvestigateOptions {
   apiKey?: string;
   /** Inject a pre-configured Anthropic client (used in tests). */
   client?: Anthropic;
+  /** Called after each batch of tool calls completes (for progress notifications). */
+  onToolCall?: (toolNames: string[]) => Promise<void>;
 }
 
 export async function investigate(
@@ -218,6 +220,13 @@ export async function investigate(
           return content;
         })
       );
+
+      if (opts.onToolCall) {
+        const names = toolUseBlocks
+          .filter((b) => b.type === "tool_use")
+          .map((b) => (b.type === "tool_use" ? b.name : ""));
+        await opts.onToolCall(names).catch(() => { /* never let callback crash the agent */ });
+      }
 
       messages.push({ role: "assistant", content: response.content });
       messages.push({
