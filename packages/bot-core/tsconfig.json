@@ -5,10 +5,9 @@
     "types": ["bun-types"],
     "paths": {
       "@shared/types": ["../../shared/types/index.ts"],
-      "@shared/mock-data": ["../../shared/mock-data/index.ts"],
       "@oncall/hypothesis-validator": ["../hypothesis-validator/src/index.ts"],
       "@oncall/investigation-agent": ["../investigation-agent/src/agent.ts"],
-      "@oncall/bot-core": ["../bot-core/src/index.ts"]
+      "@shared/mock-data": ["../../shared/mock-data/index.ts"]
     }
   },
   "include": ["src"]
