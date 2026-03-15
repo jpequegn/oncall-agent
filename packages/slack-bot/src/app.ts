@@ -1,12 +1,21 @@
 import { App } from "@slack/bolt";
-import { handleIncident } from "./handlers/incident";
-import { registerActionHandlers, handlePendingRejection, pendingRejections } from "./handlers/actions";
+import {
+  ACTIONS,
+  handleIncidentMention,
+  handleConfirm,
+  handleReject,
+  handleInvestigateMore,
+  handleRejectionReply,
+  pendingRejections,
+  type MessageContext,
+} from "@oncall/bot-core";
+import { SlackAdapter } from "./slack-adapter";
 
 // ── Environment ────────────────────────────────────────────────────────────
 
 const SLACK_BOT_TOKEN      = process.env.SLACK_BOT_TOKEN;
 const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET;
-const SLACK_APP_TOKEN      = process.env.SLACK_APP_TOKEN; // for Socket Mode
+const SLACK_APP_TOKEN      = process.env.SLACK_APP_TOKEN;
 const PORT                 = Number(process.env.PORT ?? 3000);
 const SERVICE_GRAPH_URL    = process.env.SERVICE_GRAPH_URL ?? "http://localhost:3001";
 
@@ -15,7 +24,7 @@ if (!SLACK_BOT_TOKEN || !SLACK_SIGNING_SECRET) {
   process.exit(1);
 }
 
-// ── Bolt app ───────────────────────────────────────────────────────────────
+// ── Bolt app + adapter ─────────────────────────────────────────────────────
 
 const appConfig: ConstructorParameters<typeof App>[0] = {
   token: SLACK_BOT_TOKEN,
@@ -28,60 +37,60 @@ if (SLACK_APP_TOKEN) {
 }
 
 const app = new App(appConfig);
+const adapter = new SlackAdapter(app);
+const orchOpts = { serviceGraphUrl: SERVICE_GRAPH_URL };
 
-// ── Event: app_mention ─────────────────────────────────────────────────────
+// ── Wire events via adapter ────────────────────────────────────────────────
 
-app.event("app_mention", async ({ event }) => {
-  const alertText = event.text.replace(/<@[^>]+>/g, "").trim();
-  const threadTs = ("thread_ts" in event ? event.thread_ts as string : undefined) ?? event.ts;
-
-  await handleIncident({
-    text: alertText || event.text,
-    channelId: event.channel,
-    threadTs,
-    app,
-    serviceGraphUrl: SERVICE_GRAPH_URL,
-  });
+adapter.onMention(async (text, ctx) => {
+  await handleIncidentMention(text, ctx, adapter, orchOpts);
 });
 
-// ── Action handlers (button interactions) ─────────────────────────────────
+adapter.onAction(ACTIONS.CONFIRM, async (ctx) => {
+  await handleConfirm(ctx, adapter);
+});
 
-registerActionHandlers(app);
+adapter.onAction(ACTIONS.REJECT, async (ctx) => {
+  await handleReject(ctx, adapter);
+});
+
+adapter.onAction(ACTIONS.INVESTIGATE_MORE, async (ctx) => {
+  await handleInvestigateMore(ctx, adapter, orchOpts);
+});
 
 // ── Thread message listener (rejection correction flow) ────────────────────
 
-app.message(async ({ message, client }) => {
-  // Only handle threaded messages that are not from bots
-  if (message.subtype) return; // bot messages, edits, etc.
+app.message(async ({ message }) => {
+  if (message.subtype) return;
   const msg = message as { channel: string; ts: string; thread_ts?: string; text?: string; user?: string };
   if (!msg.thread_ts || !msg.text) return;
+  if (!pendingRejections.has(`${msg.channel}-${msg.thread_ts}`)) return;
 
-  const key = `${msg.channel}-${msg.thread_ts}`;
-  if (!pendingRejections.has(key)) return;
-
-  await handlePendingRejection(app, msg.channel, msg.thread_ts, msg.text, msg.user ?? "unknown");
+  const ctx: MessageContext = {
+    channelId: msg.channel,
+    threadId: msg.thread_ts,
+    userId: msg.user ?? "unknown",
+    platform: "slack",
+  };
+  await handleRejectionReply(msg.text, ctx, adapter);
 });
 
 // ── Command: /investigate ──────────────────────────────────────────────────
 
 app.command("/investigate", async ({ command, ack, say }) => {
   await ack();
-
   const text = command.text.trim();
   if (!text) {
-    await say({
-      text: "Usage: `/investigate <service-name or description>`\nExamples:\n• `/investigate payment-service`\n• `/investigate order-service high latency`",
-    });
+    await say({ text: "Usage: `/investigate <service-name or description>`" });
     return;
   }
-
-  await handleIncident({
-    text,
+  const ctx: MessageContext = {
     channelId: command.channel_id,
-    threadTs: command.trigger_id,
-    app,
-    serviceGraphUrl: SERVICE_GRAPH_URL,
-  });
+    threadId: command.trigger_id,
+    userId: command.user_id,
+    platform: "slack",
+  };
+  await handleIncidentMention(text, ctx, adapter, orchOpts);
 });
 
 // ── Health check ───────────────────────────────────────────────────────────

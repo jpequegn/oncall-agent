@@ -1,5 +1,7 @@
-import type { FullInvestigationResult, ValidatedHypothesis } from "@oncall/hypothesis-validator";
-import type { InvestigationResult, Hypothesis } from "@shared/types";
+import type { ValidatedHypothesis } from "@oncall/hypothesis-validator";
+import type { Hypothesis } from "@shared/types";
+import type { InvestigationBlocks } from "@oncall/bot-core";
+import { ACTIONS, formatDuration } from "@oncall/bot-core";
 
 // ── Slack Block Kit types (minimal) ───────────────────────────────────────
 
@@ -25,13 +27,6 @@ export interface ActionsBlock {
 }
 
 export type Block = HeaderBlock | DividerBlock | SectionBlock | ContextBlock | ActionsBlock;
-
-// ── Duration formatter ─────────────────────────────────────────────────────
-
-export function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
-}
 
 // ── Confidence bar ─────────────────────────────────────────────────────────
 
@@ -106,10 +101,10 @@ function hypothesisBlocks(
   return blocks;
 }
 
-// ── Main formatter ─────────────────────────────────────────────────────────
+// ── renderBlockKit: InvestigationBlocks → Slack Block Kit ────────────────
 
-export function formatInvestigationResult(result: FullInvestigationResult): Block[] {
-  const { alert, investigation, validation, final_hypotheses, escalate, total_duration_ms } = result;
+export function renderBlockKit(data: InvestigationBlocks): Block[] {
+  const { alert, hypotheses, originalHypotheses, investigation, validation, escalate, duration_ms } = data;
   const blocks: Block[] = [];
 
   // Header
@@ -123,7 +118,7 @@ export function formatInvestigationResult(result: FullInvestigationResult): Bloc
     type: "section",
     text: {
       type: "mrkdwn",
-      text: `*Duration:* ${formatDuration(total_duration_ms)}  ·  *Severity:* ${alert.severity.toUpperCase()}  ·  *Status:* ${investigation.status}`,
+      text: `*Duration:* ${formatDuration(duration_ms)}  ·  *Severity:* ${alert.severity.toUpperCase()}  ·  *Status:* ${investigation.status}`,
     },
   });
 
@@ -151,17 +146,17 @@ export function formatInvestigationResult(result: FullInvestigationResult): Bloc
   blocks.push({ type: "divider" });
 
   // Hypotheses
-  if (final_hypotheses.length === 0) {
+  if (hypotheses.length === 0) {
     blocks.push({
       type: "section",
       text: { type: "mrkdwn", text: "_No hypotheses generated._" },
     });
   } else {
-    final_hypotheses.forEach((vh, i) => {
-      const origH = investigation.hypotheses[vh.original_rank - 1];
+    hypotheses.forEach((vh, i) => {
+      const origH = originalHypotheses[vh.original_rank - 1];
       const isTop = i === 0;
       blocks.push(...hypothesisBlocks(vh, origH, i + 1, isTop));
-      if (i < final_hypotheses.length - 1) blocks.push({ type: "divider" });
+      if (i < hypotheses.length - 1) blocks.push({ type: "divider" });
     });
   }
 
@@ -174,8 +169,8 @@ export function formatInvestigationResult(result: FullInvestigationResult): Bloc
     });
   }
 
-  // Action buttons (only when not escalating — escalation means human takes over)
-  if (!escalate && final_hypotheses.length > 0) {
+  // Action buttons (only when not escalating)
+  if (!escalate && hypotheses.length > 0) {
     blocks.push({ type: "divider" });
     blocks.push({
       type: "actions",
@@ -184,21 +179,21 @@ export function formatInvestigationResult(result: FullInvestigationResult): Bloc
           type: "button",
           text: { type: "plain_text", text: "👍 Correct", emoji: true },
           value: "confirm",
-          action_id: "hypothesis_confirm",
+          action_id: ACTIONS.CONFIRM,
           style: "primary",
         },
         {
           type: "button",
           text: { type: "plain_text", text: "❌ Wrong", emoji: true },
           value: "reject",
-          action_id: "hypothesis_reject",
+          action_id: ACTIONS.REJECT,
           style: "danger",
         },
         {
           type: "button",
           text: { type: "plain_text", text: "🔍 Dig deeper", emoji: true },
           value: "investigate_more",
-          action_id: "investigate_more",
+          action_id: ACTIONS.INVESTIGATE_MORE,
         },
       ],
     });
@@ -207,25 +202,67 @@ export function formatInvestigationResult(result: FullInvestigationResult): Bloc
   return blocks;
 }
 
-// ── Escalation-only formatter (for status message updates) ─────────────────
+// ── renderPlainText: InvestigationBlocks → string ───────────────────────
 
-export function formatEscalationBlocks(result: FullInvestigationResult): Block[] {
-  return formatInvestigationResult(result);
-}
+export function renderPlainText(data: InvestigationBlocks): string {
+  const top = data.hypotheses[0];
+  const origH = top ? data.originalHypotheses[top.original_rank - 1] : undefined;
 
-// ── Plain-text fallback (for notifications/unfurls) ───────────────────────
-
-export function formatPlainText(result: FullInvestigationResult): string {
-  const top = result.final_hypotheses[0];
-  const origH = top ? result.investigation.hypotheses[top.original_rank - 1] : undefined;
-
-  if (result.escalate) {
-    return `⚠️ Escalation required: ${result.validation.escalation_reason ?? "low confidence"}\n${result.investigation.summary ?? ""}`;
+  if (data.escalate) {
+    return `⚠️ Escalation required: ${data.validation.escalation_reason ?? "low confidence"}\n${data.investigation.summary ?? ""}`;
   }
 
   return [
-    result.investigation.summary ?? `Investigation complete for ${result.alert.service}`,
+    data.investigation.summary ?? `Investigation complete for ${data.alert.service}`,
     origH ? `Root cause (${top!.revised_confidence}% confidence): ${origH.description}` : "",
     origH?.suggestedActions[0] ? `Action: ${origH.suggestedActions[0]}` : "",
   ].filter(Boolean).join("\n");
+}
+
+// ── Legacy exports (used by existing action handler tests) ──────────────
+
+/** @deprecated Use renderBlockKit instead */
+export function formatInvestigationResult(result: {
+  alert: InvestigationBlocks["alert"];
+  investigation: InvestigationBlocks["investigation"];
+  validation: InvestigationBlocks["validation"];
+  final_hypotheses: InvestigationBlocks["hypotheses"];
+  escalate: boolean;
+  total_duration_ms: number;
+}): Block[] {
+  return renderBlockKit({
+    type: "investigation_result",
+    alert: result.alert,
+    hypotheses: result.final_hypotheses,
+    originalHypotheses: result.investigation.hypotheses,
+    investigation: result.investigation,
+    validation: result.validation,
+    timeline: [],
+    duration_ms: result.total_duration_ms,
+    tool_call_count: 0,
+    escalate: result.escalate,
+  });
+}
+
+/** @deprecated Use renderPlainText instead */
+export function formatPlainText(result: {
+  alert: InvestigationBlocks["alert"];
+  investigation: InvestigationBlocks["investigation"];
+  validation: InvestigationBlocks["validation"];
+  final_hypotheses: InvestigationBlocks["hypotheses"];
+  escalate: boolean;
+  total_duration_ms: number;
+}): string {
+  return renderPlainText({
+    type: "investigation_result",
+    alert: result.alert,
+    hypotheses: result.final_hypotheses,
+    originalHypotheses: result.investigation.hypotheses,
+    investigation: result.investigation,
+    validation: result.validation,
+    timeline: [],
+    duration_ms: result.total_duration_ms,
+    tool_call_count: 0,
+    escalate: result.escalate,
+  });
 }

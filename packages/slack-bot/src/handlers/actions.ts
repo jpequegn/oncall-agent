@@ -1,5 +1,4 @@
 import type { App } from "@slack/bolt";
-import type { FullInvestigationResult } from "@oncall/hypothesis-validator";
 import {
   ACTIONS,
   handleConfirm,
@@ -8,11 +7,10 @@ import {
   handleRejectionReply,
   investigationStore,
   pendingRejections,
-  type ActionContext,
   type MessageContext,
   type OrchestratorOptions,
 } from "@oncall/bot-core";
-import { makeSlackAdapter } from "../slack-adapter";
+import { SlackAdapter } from "../slack-adapter";
 import { formatInvestigationResult, formatPlainText } from "../formatters/investigation";
 import type { Block } from "../formatters/investigation";
 
@@ -40,9 +38,8 @@ export interface ActionHandlerOptions {
   _validationClient?: AnyClient;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function registerActionHandlers(app: App, opts: ActionHandlerOptions = {}): void {
-  const adapter = makeSlackAdapter(app);
+  const adapter = new SlackAdapter(app);
 
   const orchOpts: OrchestratorOptions = {
     _investigationClient: opts._investigationClient,
@@ -59,24 +56,16 @@ export function registerActionHandlers(app: App, opts: ActionHandlerOptions = {}
     const threadTs: string = body.message?.thread_ts ?? messageTs;
     const userId: string = body.user?.id ?? "unknown";
 
-    const ctx: ActionContext = {
-      channelId: channel,
-      threadId: threadTs,
-      userId,
-      platform: "slack",
-      actionId: ACTIONS.CONFIRM,
-      value: "confirm",
-      messageId: messageTs,
-    };
-
-    await handleConfirm(ctx, adapter);
+    await handleConfirm({
+      channelId: channel, threadId: threadTs, userId, platform: "slack",
+      actionId: ACTIONS.CONFIRM, value: "confirm", messageId: messageTs,
+    }, adapter);
 
     // Disable buttons on original message (Slack-specific Block Kit)
     const result = investigationStore.get(`${channel}-${messageTs}`);
     const originalBlocks = (body.message?.blocks ?? []) as Block[];
     await client.chat.update({
-      channel,
-      ts: messageTs,
+      channel, ts: messageTs,
       text: result ? formatPlainText(result) : "",
       blocks: disableButtons(originalBlocks, `✅ *Confirmed* by <@${userId}>`),
     });
@@ -92,24 +81,16 @@ export function registerActionHandlers(app: App, opts: ActionHandlerOptions = {}
     const threadTs: string = body.message?.thread_ts ?? messageTs;
     const userId: string = body.user?.id ?? "unknown";
 
-    const ctx: ActionContext = {
-      channelId: channel,
-      threadId: threadTs,
-      userId,
-      platform: "slack",
-      actionId: ACTIONS.REJECT,
-      value: "reject",
-      messageId: messageTs,
-    };
-
-    await handleReject(ctx, adapter);
+    await handleReject({
+      channelId: channel, threadId: threadTs, userId, platform: "slack",
+      actionId: ACTIONS.REJECT, value: "reject", messageId: messageTs,
+    }, adapter);
 
     // Disable buttons (Slack-specific)
     const result = investigationStore.get(`${channel}-${messageTs}`);
     const originalBlocks = (body.message?.blocks ?? []) as Block[];
     await client.chat.update({
-      channel,
-      ts: messageTs,
+      channel, ts: messageTs,
       text: result ? formatPlainText(result) : "",
       blocks: disableButtons(originalBlocks, `❌ *Rejected* by <@${userId}> — awaiting correction`),
     });
@@ -129,23 +110,15 @@ export function registerActionHandlers(app: App, opts: ActionHandlerOptions = {}
     const result = investigationStore.get(`${channel}-${messageTs}`);
     const originalBlocks = (body.message?.blocks ?? []) as Block[];
     await client.chat.update({
-      channel,
-      ts: messageTs,
+      channel, ts: messageTs,
       text: result ? formatPlainText(result) : "",
       blocks: disableButtons(originalBlocks, `🔍 *Deeper investigation* requested by <@${userId}>`),
     });
 
-    const ctx: ActionContext = {
-      channelId: channel,
-      threadId: threadTs,
-      userId,
-      platform: "slack",
-      actionId: ACTIONS.INVESTIGATE_MORE,
-      value: "investigate_more",
-      messageId: messageTs,
-    };
-
-    await handleInvestigateMore(ctx, adapter, orchOpts);
+    await handleInvestigateMore({
+      channelId: channel, threadId: threadTs, userId, platform: "slack",
+      actionId: ACTIONS.INVESTIGATE_MORE, value: "investigate_more", messageId: messageTs,
+    }, adapter, orchOpts);
   });
 }
 
@@ -158,7 +131,7 @@ export async function handlePendingRejection(
   correctionText: string,
   userId: string
 ): Promise<void> {
-  const adapter = makeSlackAdapter(app);
+  const adapter = new SlackAdapter(app);
   const ctx: MessageContext = {
     channelId: channel,
     threadId: threadTs,

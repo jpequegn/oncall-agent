@@ -4,13 +4,10 @@ import {
   type MessageContext,
   type OrchestratorOptions,
 } from "@oncall/bot-core";
-import { makeSlackAdapter } from "../slack-adapter";
+import { SlackAdapter } from "../slack-adapter";
 
-// ── Tool name formatter (kept for backward compat with tests) ────────────
-
+// Re-export for backward compat
 export { formatToolName } from "@oncall/bot-core";
-
-// ── Main handler ───────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyAnthropicClient = any;
@@ -35,7 +32,7 @@ export async function handleIncident(opts: HandleIncidentOptions): Promise<void>
     platform: "slack",
   };
 
-  const adapter = makeSlackAdapter(app, channelId);
+  const adapter = new SlackAdapter(app);
 
   const orchOpts: OrchestratorOptions = {
     serviceGraphUrl,

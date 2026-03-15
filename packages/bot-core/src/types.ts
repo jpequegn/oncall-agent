@@ -1,5 +1,5 @@
-import type { Alert } from "@shared/types";
-import type { ValidatedHypothesis } from "@oncall/hypothesis-validator";
+import type { Alert, InvestigationResult, Hypothesis } from "@shared/types";
+import type { ValidatedHypothesis, ValidationResult } from "@oncall/hypothesis-validator";
 
 // Re-export for consumers
 export type { ValidatedHypothesis };
@@ -25,6 +25,10 @@ export interface InvestigationBlocks {
   type: "investigation_result";
   alert: Alert;
   hypotheses: ValidatedHypothesis[];
+  /** Original hypotheses from the investigation (for descriptions, evidence). */
+  originalHypotheses: Hypothesis[];
+  investigation: InvestigationResult;
+  validation: ValidationResult;
   timeline: TimelineEvent[];
   duration_ms: number;
   tool_call_count: number;
