@@ -12,6 +12,7 @@
   "dependencies": {
     "@shared/types": "workspace:*",
     "@shared/mock-data": "workspace:*",
+    "@oncall/bot-core": "workspace:*",
     "@oncall/hypothesis-validator": "workspace:*",
     "@anthropic-ai/sdk": "^0.78.0",
     "@slack/bolt": "^4.6.0"
