@@ -35,7 +35,17 @@ function disableButtons(originalBlocks: Block[], notice: string): Block[] {
 // ── Register all action handlers ───────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function registerActionHandlers(app: App): void {
+type AnyClient = any;
+
+export interface ActionHandlerOptions {
+  /** Injected Anthropic client for investigation (used in tests). */
+  _investigationClient?: AnyClient;
+  /** Injected Anthropic client for validation (used in tests). */
+  _validationClient?: AnyClient;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function registerActionHandlers(app: App, opts: ActionHandlerOptions = {}): void {
 
   // ── 👍 Confirm ────────────────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -184,6 +194,7 @@ export function registerActionHandlers(app: App): void {
         scenario: detectScenario(result.alert.service),
         maxIterations: 15,
         contextHint,
+        client: opts._investigationClient,
         onToolCall: async (toolNames) => {
           const { formatToolName } = await import("./incident");
           completedTools.push(...toolNames.map(formatToolName));
@@ -208,7 +219,7 @@ export function registerActionHandlers(app: App): void {
         text: `🧪 Validating hypotheses...\n${completedTools.map((t) => `✓ ${t}`).join("\n")}` });
 
       const valStart = Date.now();
-      const validation = await validate(investigation, {});
+      const validation = await validate(investigation, { client: opts._validationClient });
       const valDuration = Date.now() - valStart;
 
       const finalHypotheses = rerankHypotheses(validation.validated_hypotheses);

@@ -239,6 +239,68 @@ describe("formatInvestigationResult — escalation path", () => {
   });
 });
 
+// ── formatInvestigationResult — runbook link ───────────────────────────────
+
+describe("formatInvestigationResult — runbook URL handling", () => {
+  it("includes runbook link when suggestedActions contains a URL", () => {
+    // investigation fixture already has a URL in suggestedActions
+    const result = makeResult(validationSuccess);
+    const blocks = formatInvestigationResult(result);
+
+    const actionBlock = blocks.find(
+      (b) => b.type === "section" && "text" in b && b.text.text.includes("Suggested action:")
+    );
+    expect(actionBlock).toBeDefined();
+    if (actionBlock && actionBlock.type === "section") {
+      expect(actionBlock.text.text).toContain("Runbook:");
+      expect(actionBlock.text.text).toContain("wiki.example.com");
+    }
+  });
+
+  it("omits runbook line when no URL in suggestedActions", () => {
+    const noRunbookInvestigation: InvestigationResult = {
+      ...investigation,
+      hypotheses: [{
+        ...investigation.hypotheses[0]!,
+        suggestedActions: ["Roll back payment-service to v2.4.0"], // no URL
+      }, ...investigation.hypotheses.slice(1)],
+    };
+    const result: FullInvestigationResult = {
+      ...makeResult(validationSuccess),
+      investigation: noRunbookInvestigation,
+    };
+    const blocks = formatInvestigationResult(result);
+
+    const actionBlock = blocks.find(
+      (b) => b.type === "section" && "text" in b && b.text.text.includes("Suggested action:")
+    );
+    expect(actionBlock).toBeDefined();
+    if (actionBlock && actionBlock.type === "section") {
+      expect(actionBlock.text.text).not.toContain("Runbook:");
+    }
+  });
+
+  it("shows no suggested action block when suggestedActions is empty", () => {
+    const noActionsInvestigation: InvestigationResult = {
+      ...investigation,
+      hypotheses: [{
+        ...investigation.hypotheses[0]!,
+        suggestedActions: [],
+      }, ...investigation.hypotheses.slice(1)],
+    };
+    const result: FullInvestigationResult = {
+      ...makeResult(validationSuccess),
+      investigation: noActionsInvestigation,
+    };
+    const blocks = formatInvestigationResult(result);
+
+    const actionBlock = blocks.find(
+      (b) => b.type === "section" && "text" in b && b.text.text.includes("Suggested action:")
+    );
+    expect(actionBlock).toBeUndefined();
+  });
+});
+
 // ── formatPlainText ────────────────────────────────────────────────────────
 
 describe("formatPlainText", () => {
