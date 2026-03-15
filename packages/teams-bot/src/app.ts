@@ -4,11 +4,19 @@ import {
   ConfigurationServiceClientCredentialFactory,
   createBotFrameworkAuthenticationFromConfiguration,
 } from "botbuilder";
-import { OnCallBot } from "./bot";
+import {
+  ACTIONS,
+  handleIncidentMention,
+  handleConfirm,
+  handleReject,
+  handleInvestigateMore,
+} from "@oncall/bot-core";
+import { TeamsAdapter } from "./teams-adapter";
 
 // ── Environment ────────────────────────────────────────────────────────────
 
 const PORT = Number(process.env.PORT ?? 3978);
+const SERVICE_GRAPH_URL = process.env.SERVICE_GRAPH_URL ?? "http://localhost:3001";
 
 const config = {
   MicrosoftAppId: process.env.MICROSOFT_APP_ID ?? "",
@@ -16,35 +24,39 @@ const config = {
   MicrosoftAppType: "MultiTenant",
 };
 
-// ── Adapter ────────────────────────────────────────────────────────────────
+// ── Bot Framework adapter ──────────────────────────────────────────────────
 
 const credentialsFactory = new ConfigurationServiceClientCredentialFactory(config);
 const botFrameworkAuth = createBotFrameworkAuthenticationFromConfiguration(null, credentialsFactory);
-const adapter = new CloudAdapter(botFrameworkAuth);
+const cloudAdapter = new CloudAdapter(botFrameworkAuth);
 
-adapter.onTurnError = async (context, error) => {
+cloudAdapter.onTurnError = async (context, error) => {
   console.error(`[OnCallBot] Unhandled error: ${error.message}`);
   await context.sendActivity("❌ An internal error occurred. Please try again.");
 };
 
-// ── Bot ────────────────────────────────────────────────────────────────────
+// ── TeamsAdapter (BotAdapter) + orchestrator wiring ────────────────────────
 
-const bot = new OnCallBot();
+const bot = new TeamsAdapter();
+const orchOpts = { serviceGraphUrl: SERVICE_GRAPH_URL };
+
+bot.onMention(async (text, ctx) => {
+  await handleIncidentMention(text, ctx, bot, orchOpts);
+});
+
+bot.onAction(ACTIONS.CONFIRM, async (ctx) => {
+  await handleConfirm(ctx, bot);
+});
+
+bot.onAction(ACTIONS.REJECT, async (ctx) => {
+  await handleReject(ctx, bot);
+});
+
+bot.onAction(ACTIONS.INVESTIGATE_MORE, async (ctx) => {
+  await handleInvestigateMore(ctx, bot, orchOpts);
+});
 
 // ── Express-like shim for CloudAdapter.process() ───────────────────────────
-
-interface AdapterRequest {
-  method: string;
-  headers: Record<string, string | string[] | undefined>;
-  body: unknown;
-  on: (event: string, cb: (...args: unknown[]) => void) => void;
-}
-
-interface AdapterResponse {
-  status: (code: number) => AdapterResponse;
-  send: (body: unknown) => AdapterResponse;
-  end: () => void;
-}
 
 function readBody(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
@@ -52,17 +64,14 @@ function readBody(req: IncomingMessage): Promise<unknown> {
     req.on("data", (chunk: Buffer) => chunks.push(chunk));
     req.on("end", () => {
       const raw = Buffer.concat(chunks).toString("utf-8");
-      try {
-        resolve(raw ? JSON.parse(raw) : {});
-      } catch {
-        resolve({});
-      }
+      try { resolve(raw ? JSON.parse(raw) : {}); }
+      catch { resolve({}); }
     });
     req.on("error", reject);
   });
 }
 
-function shimRequest(req: IncomingMessage, body: unknown): AdapterRequest {
+function shimRequest(req: IncomingMessage, body: unknown) {
   return {
     method: req.method ?? "GET",
     headers: req.headers as Record<string, string | string[] | undefined>,
@@ -71,13 +80,10 @@ function shimRequest(req: IncomingMessage, body: unknown): AdapterRequest {
   };
 }
 
-function shimResponse(res: ServerResponse): AdapterResponse {
+function shimResponse(res: ServerResponse) {
   let statusCode = 200;
   return {
-    status(code: number) {
-      statusCode = code;
-      return this;
-    },
+    status(code: number) { statusCode = code; return this; },
     send(body: unknown) {
       const payload = typeof body === "string" ? body : JSON.stringify(body);
       res.writeHead(statusCode, { "Content-Type": "application/json" });
@@ -85,10 +91,7 @@ function shimResponse(res: ServerResponse): AdapterResponse {
       return this;
     },
     end() {
-      if (!res.writableEnded) {
-        res.writeHead(statusCode);
-        res.end();
-      }
+      if (!res.writableEnded) { res.writeHead(statusCode); res.end(); }
     },
   };
 }
@@ -102,15 +105,12 @@ const server = createServer(async (req, res) => {
     try {
       const body = await readBody(req);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (adapter as any).process(shimRequest(req, body), shimResponse(res), async (context: any) => {
+      await (cloudAdapter as any).process(shimRequest(req, body), shimResponse(res), async (context: any) => {
         await bot.run(context);
       });
     } catch (err) {
       console.error("[OnCallBot] Error processing message:", (err as Error).message);
-      if (!res.writableEnded) {
-        res.writeHead(500);
-        res.end("Internal Server Error");
-      }
+      if (!res.writableEnded) { res.writeHead(500); res.end("Internal Server Error"); }
     }
   } else if (url.pathname === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -126,4 +126,5 @@ server.listen(PORT, () => {
   console.log(`   Endpoint: http://localhost:${PORT}/api/messages`);
   console.log(`🏥 Health check: http://localhost:${PORT}/health`);
   console.log(`   App ID: ${config.MicrosoftAppId || "(none — local dev mode)"}`);
+  console.log(`   Service graph: ${SERVICE_GRAPH_URL}`);
 });
