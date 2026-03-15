@@ -15,6 +15,7 @@
         "@anthropic-ai/sdk": "^0.78.0",
         "@oncall/hypothesis-validator": "workspace:*",
         "@oncall/investigation-agent": "workspace:*",
+        "@oncall/investigation-memory": "workspace:*",
         "@shared/mock-data": "workspace:*",
         "@shared/types": "workspace:*",
       },
@@ -40,8 +41,21 @@
       "version": "0.1.0",
       "dependencies": {
         "@anthropic-ai/sdk": "^0.36.3",
+        "@oncall/investigation-memory": "workspace:*",
         "@shared/mock-data": "workspace:*",
         "@shared/types": "workspace:*",
+      },
+      "devDependencies": {
+        "bun-types": "latest",
+      },
+    },
+    "packages/investigation-memory": {
+      "name": "@oncall/investigation-memory",
+      "version": "0.1.0",
+      "dependencies": {
+        "@shared/types": "workspace:*",
+        "drizzle-orm": "^0.41.0",
+        "postgres": "^3.4.5",
       },
       "devDependencies": {
         "bun-types": "latest",
@@ -188,6 +202,8 @@
     "@oncall/hypothesis-validator": ["@oncall/hypothesis-validator@workspace:packages/hypothesis-validator"],
 
     "@oncall/investigation-agent": ["@oncall/investigation-agent@workspace:packages/investigation-agent"],
+
+    "@oncall/investigation-memory": ["@oncall/investigation-memory@workspace:packages/investigation-memory"],
 
     "@oncall/service-graph": ["@oncall/service-graph@workspace:packages/service-graph"],
 

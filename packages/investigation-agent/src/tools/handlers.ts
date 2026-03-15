@@ -16,6 +16,7 @@ import type {
   ServiceDepsQuery,
   RunbookQuery,
   IncidentQuery,
+  SimilarIncidentQuery,
   ExecutorContext,
 } from "./types";
 
@@ -169,6 +170,63 @@ export function searchMockRunbooks(input: RunbookQuery): typeof mockRunbooks {
   }
 
   return results;
+}
+
+// ── get_past_incidents ────────────────────────────────────────────────────
+
+// ── search_similar_incidents ─────────────────────────────────────────────
+
+export async function searchSimilarIncidents(
+  input: SimilarIncidentQuery,
+  ctx: ExecutorContext
+): Promise<unknown> {
+  try {
+    const { searchHybrid, detectRecurrence } = await import("@oncall/investigation-memory");
+
+    const [similar, recurrence] = await Promise.all([
+      searchHybrid(input.query, {
+        service: input.service,
+        limit: input.limit ?? 5,
+        databaseUrl: ctx.memoryDatabaseUrl,
+      }),
+      input.service
+        ? detectRecurrence(input.service, 14, 3, {
+            databaseUrl: ctx.memoryDatabaseUrl,
+          })
+        : Promise.resolve(null),
+    ]);
+
+    return {
+      similar_incidents: similar.map((s) => ({
+        alert_title: s.alertTitle,
+        service: s.service,
+        severity: s.severity,
+        root_cause: s.rootCause,
+        resolution: s.resolution,
+        summary: s.summary,
+        feedback: s.feedback,
+        human_correction: s.correctionText,
+        confidence: s.topConfidence,
+        investigated_at: s.investigatedAt,
+        similarity_score: Math.round(s.similarity * 100) / 100,
+      })),
+      recurrence_pattern: recurrence
+        ? {
+            count: recurrence.count,
+            window_days: 14,
+            common_root_causes: recurrence.commonRootCauses,
+            message: `WARNING: ${recurrence.count} incidents for ${recurrence.service} in the last 14 days. This may indicate a systemic issue.`,
+          }
+        : null,
+    };
+  } catch {
+    // Investigation memory not available — return empty (graceful degradation)
+    return {
+      similar_incidents: [],
+      recurrence_pattern: null,
+      note: "Investigation memory is not available. Proceeding without historical context.",
+    };
+  }
 }
 
 // ── get_past_incidents ────────────────────────────────────────────────────

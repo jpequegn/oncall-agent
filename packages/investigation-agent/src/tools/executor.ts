@@ -5,6 +5,7 @@ import {
   fetchServiceDeps,
   searchMockRunbooks,
   getMockPastIncidents,
+  searchSimilarIncidents,
 } from "./handlers";
 import type {
   MetricQuery,
@@ -13,6 +14,7 @@ import type {
   ServiceDepsQuery,
   RunbookQuery,
   IncidentQuery,
+  SimilarIncidentQuery,
   ToolResult,
   ExecutorContext,
 } from "./types";
@@ -53,6 +55,10 @@ export async function executeTool(
 
       case "get_past_incidents":
         output = getMockPastIncidents(toolInput as unknown as IncidentQuery);
+        break;
+
+      case "search_similar_incidents":
+        output = await searchSimilarIncidents(toolInput as unknown as SimilarIncidentQuery, ctx);
         break;
 
       default:
@@ -162,6 +168,20 @@ export const toolDefinitions = [
         limit:    { type: "number", description: "Max incidents to return (default all)" },
       },
       required: [],
+    },
+  },
+  {
+    name: "search_similar_incidents",
+    description:
+      "Search the investigation memory for similar past incidents using semantic similarity. Returns past investigations with their root causes, resolutions, and human feedback (confirmed/rejected/corrected). Also detects recurrence patterns. Use this FIRST to check if this type of incident has been seen before.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query:   { type: "string", description: "Natural language description of the current incident symptoms" },
+        service: { type: "string", description: "Filter to a specific service (recommended)" },
+        limit:   { type: "number", description: "Max similar incidents to return (default 5)" },
+      },
+      required: ["query"],
     },
   },
 ] as const;

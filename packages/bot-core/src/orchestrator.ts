@@ -171,7 +171,15 @@ export async function handleIncidentMention(
     blocks: toInvestigationBlocks(fullResult, completedTools.length),
   });
 
-  investigationStore.set(`${ctx.channelId}-${resultId}`, fullResult);
+  const storeKey = `${ctx.channelId}-${resultId}`;
+  investigationStore.set(storeKey, fullResult);
+
+  // Persist to investigation memory
+  persistToMemory(fullResult).then((memId) => {
+    if (memId) memoryIdStore.set(storeKey, memId);
+  }).catch((err) =>
+    console.error("[investigation-memory] Failed to persist:", err)
+  );
 }
 
 // ── handleConfirm ──────────────────────────────────────────────────────
@@ -184,7 +192,8 @@ export async function handleConfirm(
     text: `✅ Thanks <@${ctx.userId}>! Storing this as a confirmed resolution...`,
   });
 
-  const result = investigationStore.get(`${ctx.channelId}-${ctx.messageId}`);
+  const storeKey = `${ctx.channelId}-${ctx.messageId}`;
+  const result = investigationStore.get(storeKey);
   if (result) {
     const { addMockIncident } = await import("@shared/mock-data");
     const top = result.final_hypotheses[0];
@@ -201,6 +210,9 @@ export async function handleConfirm(
       resolution: origH?.suggestedActions[0] ?? result.investigation.resolution ?? "Unknown",
       preventionNotes: `Confirmed via ${ctx.platform} by <@${ctx.userId}>`,
     });
+
+    // Update investigation memory with confirmation feedback
+    updateMemoryFeedback(storeKey, "confirmed", ctx.userId).catch(() => {});
   }
 }
 
@@ -210,12 +222,16 @@ export async function handleReject(
   ctx: ActionContext,
   adapter: BotAdapter,
 ): Promise<void> {
-  const result = investigationStore.get(`${ctx.channelId}-${ctx.messageId}`);
+  const storeKey = `${ctx.channelId}-${ctx.messageId}`;
+  const result = investigationStore.get(storeKey);
 
   pendingRejections.set(`${ctx.channelId}-${ctx.threadId}`, {
     service: result?.alert.service ?? "",
     alertId: result?.alert.id ?? "",
   });
+
+  // Update investigation memory with rejection feedback
+  updateMemoryFeedback(storeKey, "rejected", ctx.userId).catch(() => {});
 
   await adapter.postMessage(ctx, {
     text: `❌ Got it — what was the actual root cause? _(Reply in this thread and I'll re-investigate with your correction.)_`,
@@ -352,6 +368,15 @@ export async function handleRejectionReply(
     preventionNotes: `Corrected by <@${ctx.userId}>`,
   });
 
+  // Update investigation memory with correction
+  // Find the memory ID from the original investigation key
+  for (const [storeKey, memId] of memoryIdStore.entries()) {
+    if (storeKey.startsWith(`${ctx.channelId}-`)) {
+      updateMemoryFeedback(storeKey, "corrected", ctx.userId, correctionText).catch(() => {});
+      break;
+    }
+  }
+
   await adapter.postMessage(ctx, {
     text: `Thanks <@${ctx.userId}>! Stored your correction. Re-investigating with this context...`,
   });
@@ -434,6 +459,69 @@ export async function handleRejectionReply(
     await adapter.updateMessage(ctx, statusId, {
       text: `❌ Re-investigation failed: ${(err as Error).message}`,
     });
+  }
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────
+
+// ── Investigation memory persistence ──────────────────────────────────
+
+/** Maps investigation store key → memory UUID (for feedback updates). */
+export const memoryIdStore = new Map<string, string>();
+
+async function persistToMemory(result: FullInvestigationResult): Promise<string | null> {
+  try {
+    const { storeInvestigation } = await import("@oncall/investigation-memory");
+
+    const top = result.final_hypotheses[0];
+    const origH = top ? result.investigation.hypotheses[top.original_rank - 1] : undefined;
+
+    const memoryId = await storeInvestigation({
+      alertId: result.alert.id,
+      alertTitle: result.alert.title,
+      service: result.alert.service,
+      severity: severityToP(result.alert.severity),
+      rootCause: origH?.description ?? result.investigation.rootCause,
+      resolution: origH?.suggestedActions[0] ?? result.investigation.resolution,
+      summary: result.investigation.summary,
+      hypotheses: result.investigation.hypotheses.map((h) => ({
+        description: h.description,
+        confidence: h.confidence,
+        revisedConfidence: result.final_hypotheses.find(
+          (vh) => result.investigation.hypotheses[vh.original_rank - 1]?.id === h.id
+        )?.revised_confidence,
+        evidence: h.evidence,
+        suggestedAction: h.suggestedActions[0],
+      })),
+      evidence: result.investigation.hypotheses.flatMap((h) => h.evidence),
+      topConfidence: top?.revised_confidence,
+      escalated: result.escalate,
+      validatorNotes: result.validation.validator_notes,
+    });
+
+    console.log(`[investigation-memory] Stored investigation ${memoryId}`);
+    return memoryId;
+  } catch {
+    // Memory store unavailable — degrade gracefully
+    return null;
+  }
+}
+
+async function updateMemoryFeedback(
+  storeKey: string,
+  feedback: "confirmed" | "rejected" | "corrected",
+  userId: string,
+  correctionText?: string
+): Promise<void> {
+  const memoryId = memoryIdStore.get(storeKey);
+  if (!memoryId) return;
+
+  try {
+    const { updateFeedback } = await import("@oncall/investigation-memory");
+    await updateFeedback(memoryId, feedback, userId, correctionText);
+    console.log(`[investigation-memory] Updated feedback for ${memoryId}: ${feedback}`);
+  } catch {
+    // Memory store unavailable — degrade gracefully
   }
 }
 

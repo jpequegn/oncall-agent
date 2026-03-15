@@ -1,0 +1,17 @@
+{
+  "name": "@oncall/investigation-memory",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test src/__tests__"
+  },
+  "dependencies": {
+    "@shared/types": "workspace:*",
+    "drizzle-orm": "^0.41.0",
+    "postgres": "^3.4.5"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  }
+}

@@ -11,6 +11,7 @@
     "@shared/mock-data": "workspace:*",
     "@oncall/hypothesis-validator": "workspace:*",
     "@oncall/investigation-agent": "workspace:*",
+    "@oncall/investigation-memory": "workspace:*",
     "@anthropic-ai/sdk": "^0.78.0"
   },
   "devDependencies": {
