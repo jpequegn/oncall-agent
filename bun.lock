@@ -8,6 +8,17 @@
         "typescript": "^5.4.0",
       },
     },
+    "packages/bot-core": {
+      "name": "@oncall/bot-core",
+      "version": "0.1.0",
+      "dependencies": {
+        "@oncall/hypothesis-validator": "workspace:*",
+        "@shared/types": "workspace:*",
+      },
+      "devDependencies": {
+        "bun-types": "^1.3.10",
+      },
+    },
     "packages/hypothesis-validator": {
       "name": "@oncall/hypothesis-validator",
       "version": "0.1.0",
@@ -130,6 +141,8 @@
     "@esbuild/win32-ia32": ["@esbuild/win32-ia32@0.19.12", "", { "os": "win32", "cpu": "ia32" }, "sha512-+ZOE6pUkMOJfmxmBZElNOx72NKpIa/HFOMGzu8fqzQJ5kgf6aTGrcJaFsNiVMH4JKpMipyK+7k0n2UXN7a8YKQ=="],
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.19.12", "", { "os": "win32", "cpu": "x64" }, "sha512-T1QyPSDCyMXaO3pzBkF96E8xMkiRYbUEZADd29SyPGabqxMViNoii+NcK7eWJAEoU6RZyEm5lVSIjTmcdoB9HA=="],
+
+    "@oncall/bot-core": ["@oncall/bot-core@workspace:packages/bot-core"],
 
     "@oncall/hypothesis-validator": ["@oncall/hypothesis-validator@workspace:packages/hypothesis-validator"],
 
