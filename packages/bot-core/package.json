@@ -8,7 +8,10 @@
   },
   "dependencies": {
     "@shared/types": "workspace:*",
-    "@oncall/hypothesis-validator": "workspace:*"
+    "@shared/mock-data": "workspace:*",
+    "@oncall/hypothesis-validator": "workspace:*",
+    "@oncall/investigation-agent": "workspace:*",
+    "@anthropic-ai/sdk": "^0.78.0"
   },
   "devDependencies": {
     "bun-types": "^1.3.10"

@@ -126,9 +126,10 @@ describe("Default values for missing fields", () => {
     expect(result.service).toBe("unknown-service");
   });
 
-  it("always sets source=slack label", async () => {
+  it("always sets source label from options", async () => {
     const result = await parseAlert("payment-service down", {
       client: makeLLMClient({ service: "payment-service" }) as never,
+      source: "slack",
     });
     expect(result.labels.source).toBe("slack");
   });
@@ -180,7 +181,7 @@ describe("Regex fallback (no LLM client provided)", () => {
   });
 
   it("gracefully returns partial alert for garbled input", async () => {
-    const result = await parseAlert("!@#$% broken stuff everywhere", {});
+    const result = await parseAlert("!@#$% broken stuff everywhere", { source: "slack" });
     expect(result.id).toMatch(/^slack-/);
     expect(result.labels.source).toBe("slack");
     expect(result.rawText).toBe("!@#$% broken stuff everywhere");
