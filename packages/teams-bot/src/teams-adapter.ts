@@ -179,8 +179,13 @@ export class TeamsAdapter extends TeamsActivityHandler implements BotAdapter {
       return { status: 200 };
     }
 
-    // Delegate to parent for other invoke types
-    return super.onInvokeActivity(context);
+    // Delegate to parent for other invoke types — catch errors
+    // from malformed invoke activities (e.g. missing action.type)
+    try {
+      return await super.onInvokeActivity(context);
+    } catch {
+      return { status: 200 };
+    }
   }
 
 }
