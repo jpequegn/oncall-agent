@@ -303,3 +303,99 @@ describe("renderAdaptiveCard — secondary hypotheses", () => {
     expect(showCard!.title).toContain("hypotheses");
   });
 });
+
+// ── Missing runbook ─────────────────────────────────────────────────────
+
+describe("renderAdaptiveCard — missing runbook", () => {
+  it("omits runbook link when no URL in suggestedActions", () => {
+    const blocks = makeBlocks();
+    blocks.originalHypotheses[0]!.suggestedActions = ["Rollback to v2.3.0"];
+    const card = renderAdaptiveCard(blocks);
+    const body = card.body as Array<{ text?: string }>;
+    const actionBlock = body.find((b) => b.text?.includes("Suggested action:"));
+    expect(actionBlock).toBeDefined();
+    expect(actionBlock!.text).not.toContain("Runbook");
+  });
+
+  it("omits suggested action block when suggestedActions is empty", () => {
+    const blocks = makeBlocks();
+    blocks.originalHypotheses[0]!.suggestedActions = [];
+    const card = renderAdaptiveCard(blocks);
+    const body = card.body as Array<{ text?: string }>;
+    const actionBlock = body.find((b) => b.text?.includes("Suggested action:"));
+    expect(actionBlock).toBeUndefined();
+  });
+});
+
+// ── Snapshot: Scenario A (deploy regression) ─────────────────────────────
+
+describe("renderAdaptiveCard — snapshot: Scenario A", () => {
+  it("produces stable card structure for deploy regression scenario", () => {
+    const card = renderAdaptiveCard(makeBlocks());
+
+    // Top-level structure
+    expect(card.type).toBe("AdaptiveCard");
+    expect(card.version).toBe("1.5");
+
+    const body = card.body as Array<Record<string, unknown>>;
+    const actions = card.actions as Array<Record<string, unknown>>;
+
+    // Count element types
+    const textBlocks = body.filter((b) => b.type === "TextBlock");
+    const factSets = body.filter((b) => b.type === "FactSet");
+    const separators = body.filter((b) => b.type === "ColumnSet");
+
+    expect(factSets).toHaveLength(1);
+    expect(separators.length).toBeGreaterThanOrEqual(1);
+    expect(textBlocks.length).toBeGreaterThanOrEqual(5); // header, summary, hypothesis, evidence, etc.
+
+    // 3 submit actions, no ShowCard for single hypothesis
+    expect(actions).toHaveLength(3);
+    expect(actions.every((a) => a.type === "Action.Submit")).toBe(true);
+  });
+});
+
+// ── Snapshot: Escalation case ───────────────────────────────────────────
+
+describe("renderAdaptiveCard — snapshot: escalation", () => {
+  it("produces stable card structure for escalation scenario", () => {
+    const card = renderAdaptiveCard(makeBlocks({
+      escalate: true,
+      hypotheses: [{
+        original_rank: 1, original_confidence: 40, challenge_score: 80,
+        key_objections: ["Evidence contradicts"], missing_evidence: ["Logs"],
+        revised_confidence: 15,
+      }],
+      validation: {
+        incident_id: "inv-1",
+        validated_hypotheses: [{
+          original_rank: 1, original_confidence: 40, challenge_score: 80,
+          key_objections: ["Evidence contradicts"], missing_evidence: ["Logs"],
+          revised_confidence: 15,
+        }],
+        escalate: true,
+        escalation_reason: "All hypotheses heavily challenged, confidence too low",
+        validator_notes: "Unable to confirm root cause. Human review required.",
+      },
+    }));
+
+    const body = card.body as Array<Record<string, unknown>>;
+
+    // Escalation banner present
+    const banner = body.find((b) => b.type === "TextBlock" && (b.text as string)?.includes("Escalation required"));
+    expect(banner).toBeDefined();
+    expect(banner!.color).toBe("Attention");
+    expect(banner!.weight).toBe("Bolder");
+
+    // Red confidence emoji for low confidence
+    const hypBlock = body.find((b) => b.type === "TextBlock" && (b.text as string)?.includes("🔴"));
+    expect(hypBlock).toBeDefined();
+
+    // No action buttons when escalating
+    expect(card.actions).toBeUndefined();
+
+    // Validator notes still present
+    const notes = body.find((b) => b.type === "TextBlock" && (b.text as string)?.includes("Human review required"));
+    expect(notes).toBeDefined();
+  });
+});
