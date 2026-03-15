@@ -1,9 +1,9 @@
 import { describe, it, expect } from "bun:test";
 import {
-  formatDuration,
   formatInvestigationResult,
   formatPlainText,
 } from "../formatters/investigation";
+import { formatDuration } from "@oncall/bot-core";
 import type { FullInvestigationResult } from "@oncall/hypothesis-validator";
 import type { Alert, InvestigationResult } from "@shared/types";
 import type { ValidationResult } from "@oncall/hypothesis-validator";
