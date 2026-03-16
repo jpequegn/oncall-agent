@@ -12,6 +12,7 @@
   "dependencies": {
     "@shared/types": "workspace:*",
     "@shared/mock-data": "workspace:*",
+    "@oncall/investigation-memory": "workspace:*",
     "@anthropic-ai/sdk": "^0.36.3"
   },
   "devDependencies": {

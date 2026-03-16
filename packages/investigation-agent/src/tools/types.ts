@@ -39,6 +39,12 @@ export interface IncidentQuery {
   limit?: number;
 }
 
+export interface SimilarIncidentQuery {
+  query: string;          // natural language description of the issue
+  service?: string;       // filter by service
+  limit?: number;         // max results (default 5)
+}
+
 // ── Tool result envelope ───────────────────────────────────────────────────
 
 export interface ToolResult {
@@ -54,4 +60,5 @@ export interface ToolResult {
 export interface ExecutorContext {
   scenario: ScenarioName;
   serviceGraphUrl?: string; // default http://localhost:3001
+  memoryDatabaseUrl?: string; // for investigation memory queries
 }

@@ -18,10 +18,11 @@ Your goal is to determine the most likely root cause and recommend a resolution.
 
 Investigation process:
 1. Normalize the alert: identify the service, severity, and timeframe
-2. Gather evidence in parallel where possible using your available tools
-3. Build a timeline correlating deploys, metric changes, and error patterns
-4. Generate 2-3 ranked hypotheses with confidence scores (0-100%)
-5. For each hypothesis, cite specific evidence
+2. Search for similar past incidents first using search_similar_incidents — past patterns are invaluable
+3. Gather evidence in parallel where possible using your available tools
+4. Build a timeline correlating deploys, metric changes, and error patterns
+5. Generate 2-3 ranked hypotheses with confidence scores (0-100%)
+6. For each hypothesis, cite specific evidence. Reference similar past incidents if found.
 
 Output format — when you have enough evidence, respond with ONLY this JSON (no markdown, no extra text):
 {
@@ -46,7 +47,9 @@ Rules:
 - If a deploy correlates with a metric spike (within 5 minutes), confidence should be ≥80%
 - If no deploy found and upstream dependency is degraded, focus on the dependency chain
 - If evidence is inconclusive after exhausting tools, set top hypothesis confidence <50% and recommend human escalation
-- Cite specific timestamps, commit SHAs, file names, or log messages as evidence`;
+- Cite specific timestamps, commit SHAs, file names, or log messages as evidence
+- If similar past incidents are found, factor their root causes into your hypothesis ranking
+- If a past incident for the same service was corrected by a human, weigh that correction heavily`;
 
 // ── Alert formatter ────────────────────────────────────────────────────────
 
@@ -145,6 +148,8 @@ export interface InvestigateOptions {
   maxIterations?: number;
   /** Extra context prepended to the investigation prompt (e.g. previous findings). */
   contextHint?: string;
+  /** Database URL for investigation memory queries. */
+  memoryDatabaseUrl?: string;
 }
 
 export async function investigate(
@@ -162,6 +167,7 @@ export async function investigate(
   const ctx: ExecutorContext = {
     scenario: opts.scenario,
     serviceGraphUrl: opts.serviceGraphUrl,
+    memoryDatabaseUrl: opts.memoryDatabaseUrl,
   };
 
   const alertMsg = opts.contextHint

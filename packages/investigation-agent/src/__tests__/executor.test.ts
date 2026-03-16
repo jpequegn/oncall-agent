@@ -236,8 +236,8 @@ describe("unknown tool", () => {
 // ── tool definitions ───────────────────────────────────────────────────────
 
 describe("toolDefinitions", () => {
-  it("exports all 6 tool definitions", () => {
-    expect(toolDefinitions).toHaveLength(6);
+  it("exports all 7 tool definitions", () => {
+    expect(toolDefinitions).toHaveLength(7);
     const names = toolDefinitions.map((t) => t.name);
     expect(names).toContain("query_metrics");
     expect(names).toContain("search_logs");
@@ -245,6 +245,7 @@ describe("toolDefinitions", () => {
     expect(names).toContain("get_service_deps");
     expect(names).toContain("search_runbooks");
     expect(names).toContain("get_past_incidents");
+    expect(names).toContain("search_similar_incidents");
   });
 
   it("each definition has required name, description, and input_schema", () => {
